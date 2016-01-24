@@ -1,6 +1,6 @@
 ## spellcheck
 
-Wrapper around `aspell` that adds basic support for `.po` files (requires `babel`).
+Wrapper around `aspell` that adds basic support for `.po` files (requires [babel](https://pypi.python.org/pypi/Babel)).
 
 ```
 usage: spellcheck [-h] [-b] lang file [file ...]
