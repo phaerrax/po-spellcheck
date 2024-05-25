@@ -1,25 +1,33 @@
 #!/usr/bin/env python
 
 from argparse import ArgumentParser
-from os import remove
+from pathlib import Path
 from shutil import copy2
 from subprocess import call
 from babel.messages.catalog import Catalog
 from babel.messages.pofile import read_po, write_po
 
 
-def spellcheck_po(path, args):
+def spellcheck_po(po_file_name, args):
+    po_path = Path(po_file_name)
     with open(path, "r+b") as f:
-        # The `+` is to check that the file is writable
+        # The `+` is to check that the file is writable.
         po = read_po(f)
 
-    backup_path = path + ".bak"
+    backup_path = po_path.with_suffix(po_path.suffix + ".bak")
     if args.backup:
         # `copy2` copies attempting to preserve file metadata.
         copy2(path, backup_path)
 
+    # We will extract from the original PO file all translated strings, and create a new
+    # PO from them without the English one, so that we can run a spell checker on it.
+    # In the end, we will put them back together.
+
     msgs_by_tmp_id = {}
+    # This will hold the original strings, indexed by an integer which represents their
+    # order of appearance in the original PO file.
     po_with_tmp_id = Catalog()
+    # This Catalog will hold the translated strings, without the original ones.
     for i, m in enumerate(po):
         if not m.id:
             continue
@@ -28,28 +36,38 @@ def spellcheck_po(path, args):
         if isinstance(m.string, tuple):
             tmp_id = (tmp_id, tmp_id)
         po_with_tmp_id.add(tmp_id, m.string, lineno=m.lineno)
+        # In this new Catalog, the original string is replaced by the integer to which it
+        # is associated.
 
-    tmp_path = path[:-3] + ".tmp.po"
+    # Write the PO with the translated strings to a temporary file; we will call `aspell`
+    # on it later.
+    tmp_path = po_path.with_suffix(".tmp.po")
     with open(tmp_path, "wb") as tmp:
         write_po(tmp, po_with_tmp_id, omit_header=True)
 
     call(["aspell", "-l", args.lang, "-x", "check", tmp.name])
 
+    # Read the checked file back into Python.
     with open(tmp_path, "rb") as tmp:
         po_with_tmp_id = read_po(tmp)
+
     changed = False
     for m in po_with_tmp_id:
         if not m.id:
             continue
+        # Remember that m.id is an integer (or a tuple of integers, all of them the same)
+        # which we use to recall the English string from msgs_by_tmp_id
         m_id = msgs_by_tmp_id[m.id[0] if isinstance(m.id, tuple) else m.id]
         if po[m_id].string != m.string:
             changed = True
             po[m_id].string = m.string
+
     if args.backup and not changed:
-        remove(backup_path)
+        backup_path.unlink()  # We can remove the backup file if nothing's changed
+
     with open(path, "wb") as f:
         write_po(f, po)
-    remove(tmp_path)
+    tmp_path.unlink()  # Delete temporary file
 
 
 parser = ArgumentParser()
