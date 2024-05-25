@@ -52,10 +52,14 @@ def spellcheck_po(path, args):
     remove(tmp_path)
 
 
-p = ArgumentParser()
-p.add_argument("lang")
-p.add_argument("paths", metavar="file", nargs="+")
-p.add_argument(
+parser = ArgumentParser()
+parser.add_argument(
+    "-l", "--lang", type=str, required=True, help="the target language of the PO file"
+)
+parser.add_argument(
+    "paths", metavar="file", nargs="+", help="PO file to check for spelling errors"
+)
+parser.add_argument(
     "-b",
     "--backup",
     default=False,
@@ -65,10 +69,12 @@ p.add_argument(
 
 
 if __name__ == "__main__":
-    args = p.parse_args()
+    args = parser.parse_args()
     for path in args.paths:
         if path.endswith(".po"):
             spellcheck_po(path, args)
         else:
             backup_flag = "-b" if args.backup else "-x"
+            # aspell -b: create backup
+            # aspell -x: don't create backup
             call(["aspell", "-l", args.lang, backup_flag, "check", path])
