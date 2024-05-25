@@ -1,9 +1,9 @@
-## spellcheck
+# po-spellcheck
 
 Wrapper around `aspell` that adds basic support for `.po` files (requires [babel](https://pypi.python.org/pypi/Babel)).
 
 ```
-usage: spellcheck [-h] -l LANG [-b] file [file ...]
+usage: po-spellcheck [-h] -l LANG [-b] file [file ...]
 
 positional arguments:
   file                  PO files to check for spelling errors
