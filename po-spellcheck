@@ -6,6 +6,7 @@ from shutil import copy2
 from subprocess import call
 from babel.messages.catalog import Catalog
 from babel.messages.pofile import read_po, write_po
+from tempfile import NamedTemporaryFile
 
 
 def spellcheck_po(po_file_name, args):
@@ -48,7 +49,29 @@ def spellcheck_po(po_file_name, args):
     with open(tmp_path, "wb") as tmp:
         write_po(tmp, po_with_tmp_id, omit_header=True)
 
-    call(["aspell", "-l", args.lang, "-x", "check", tmp.name])
+    # The temporary PO file with the translated strings, by being a PO file, contains
+    # the keywords "msgid", "msgstr" and possibly "msgid_plural": aspell will in most
+    # cases not recognize them and try to correct them. It's nothing serious, but it
+    # would be nice anyway if aspell could automatically ignore them.
+    # We can achieve this by putting them into an additional "personal" dictionary that
+    # we feed to aspell. We use a temporary file so that we don't leave any trace
+    # on the system.
+    ignore_list_file = NamedTemporaryFile(delete_on_close=False)
+    ignore_list = "personal_ws-1.1 it 3\nmsgid\nmsgstr\nplural\n"
+    with open(ignore_list_file.name, "w") as tmp_ignore:
+        tmp_ignore.write(ignore_list)
+
+    call(
+        [
+            "aspell",
+            "-l",
+            args.lang,
+            #"--home-dir=.",
+            f"--personal={ignore_list_file.name}",
+            "check",
+            tmp.name,
+        ]
+    )
 
     # Read the checked file back into Python.
     with open(tmp_path, "rb") as tmp:
