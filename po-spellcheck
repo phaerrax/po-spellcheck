@@ -32,7 +32,10 @@ def spellcheck_po(po_file_name, args):
         if not m.id:
             continue
         tmp_id = str(i)
-        msgs_by_tmp_id[tmp_id] = m.id
+        msgs_by_tmp_id[tmp_id] = (m.id, m.context)
+        # We need to save the context, too: if the Message has a context, then it is
+        # necessary to specify it when retrieving it from the Catalog with the `get`
+        # method, otherwise it returns None.
         if isinstance(m.string, tuple):
             tmp_id = (tmp_id, tmp_id)
         po_with_tmp_id.add(tmp_id, m.string, lineno=m.lineno)
@@ -57,10 +60,12 @@ def spellcheck_po(po_file_name, args):
             continue
         # Remember that m.id is an integer (or a tuple of integers, all of them the same)
         # which we use to recall the English string from msgs_by_tmp_id
-        m_id = msgs_by_tmp_id[m.id[0] if isinstance(m.id, tuple) else m.id]
-        if po[m_id].string != m.string:
+        eng_msg = msgs_by_tmp_id[m.id[0] if isinstance(m.id, tuple) else m.id]
+        m_id = eng_msg[0]
+        m_context = eng_msg[1]
+        if po.get(m_id, m_context).string != m.string:
             changed = True
-            po[m_id].string = m.string
+            po.get(m_id, m_context).string = m.string
 
     if args.backup and not changed:
         backup_path.unlink()  # We can remove the backup file if nothing's changed
