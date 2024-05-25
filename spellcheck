@@ -1,24 +1,22 @@
 #!/usr/bin/env python
 
-from __future__ import division, print_function, unicode_literals
-
-import argparse
-import os
-import shutil
+from argparse import ArgumentParser
+from os import remove
+from shutil import copy2
 from subprocess import call
+from babel.messages.catalog import Catalog
+from babel.messages.pofile import read_po, write_po
 
 
 def spellcheck_po(path, args):
-    from babel.messages.catalog import Catalog
-    from babel.messages.pofile import read_po, write_po
-
-    with open(path, 'r+b') as f:
+    with open(path, "r+b") as f:
         # The `+` is to check that the file is writable
         po = read_po(f)
 
-    backup_path = path+'.bak'
+    backup_path = path + ".bak"
     if args.backup:
-        shutil.copy2(path, backup_path)
+        # `copy2` copies attempting to preserve file metadata.
+        copy2(path, backup_path)
 
     msgs_by_tmp_id = {}
     po_with_tmp_id = Catalog()
@@ -31,13 +29,13 @@ def spellcheck_po(path, args):
             tmp_id = (tmp_id, tmp_id)
         po_with_tmp_id.add(tmp_id, m.string, lineno=m.lineno)
 
-    tmp_path = path[:-3]+'.tmp.po'
-    with open(tmp_path, 'wb') as tmp:
+    tmp_path = path[:-3] + ".tmp.po"
+    with open(tmp_path, "wb") as tmp:
         write_po(tmp, po_with_tmp_id, omit_header=True)
 
-    call(['aspell', '-l', args.lang, '-x', 'check', tmp.name])
+    call(["aspell", "-l", args.lang, "-x", "check", tmp.name])
 
-    with open(tmp_path, 'rb') as tmp:
+    with open(tmp_path, "rb") as tmp:
         po_with_tmp_id = read_po(tmp)
     changed = False
     for m in po_with_tmp_id:
@@ -48,24 +46,29 @@ def spellcheck_po(path, args):
             changed = True
             po[m_id].string = m.string
     if args.backup and not changed:
-        os.remove(backup_path)
-    with open(path, 'wb') as f:
+        remove(backup_path)
+    with open(path, "wb") as f:
         write_po(f, po)
-    os.remove(tmp_path)
+    remove(tmp_path)
 
 
-p = argparse.ArgumentParser()
-p.add_argument('lang')
-p.add_argument('paths', metavar='file', nargs='+')
-p.add_argument('-b', '--backup', default=False, action='store_true',
-               help="if changes are made, create a .bak copy of the original")
+p = ArgumentParser()
+p.add_argument("lang")
+p.add_argument("paths", metavar="file", nargs="+")
+p.add_argument(
+    "-b",
+    "--backup",
+    default=False,
+    action="store_true",
+    help="if changes are made, create a .bak copy of the original",
+)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args = p.parse_args()
     for path in args.paths:
-        if path.endswith('.po'):
+        if path.endswith(".po"):
             spellcheck_po(path, args)
         else:
-            backup_flag = '-b' if args.backup else '-x'
-            call(['aspell', '-l', args.lang, backup_flag, 'check', path])
+            backup_flag = "-b" if args.backup else "-x"
+            call(["aspell", "-l", args.lang, backup_flag, "check", path])
